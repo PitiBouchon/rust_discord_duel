@@ -1,0 +1,13 @@
+# Rust files
+Cargo.lock
+target/
+
+# Tmp / Res files
+tmp/
+res/
+
+# IntelliJ IDEA
+.idea/
+
+# VS Code
+.vscode/
