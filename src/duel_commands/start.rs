@@ -103,7 +103,7 @@ pub async fn start_command<GAME: DiscordDuelGame>(
                 None
             }
         })
-        .unwrap_or(true);
+        .unwrap_or(false);
 
     command
         .create_interaction_response(&ctx.http, |response| {
