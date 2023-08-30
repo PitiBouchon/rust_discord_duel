@@ -12,11 +12,7 @@ impl FromStr for PlayerInput {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let elm: Vec<Pos> = s
-            .trim()
-            .split('|')
-            .filter_map(|elm| Pos::parse_pos(elm))
-            .collect();
+        let elm: Vec<Pos> = s.trim().split('|').filter_map(Pos::parse_pos).collect();
         Ok(Self {
             from: *elm
                 .get(0)

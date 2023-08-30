@@ -1,9 +1,7 @@
-use crate::duel_buttons::parse_first_line_game_id;
 use crate::handler::Handler;
 use anyhow::Result;
 use duel_game::DiscordDuelGame;
 use serenity::model::prelude::message_component::MessageComponentInteraction;
-use serenity::model::prelude::InteractionResponseType;
 use serenity::prelude::Context;
 
 pub async fn quit_button<GAME: DiscordDuelGame>(
@@ -11,18 +9,25 @@ pub async fn quit_button<GAME: DiscordDuelGame>(
     ctx: &Context,
     command: &MessageComponentInteraction,
 ) -> Result<()> {
-    let game_id = parse_first_line_game_id(command)?;
+    let message_id = command.message.id;
+    let channel_id = command.channel_id;
 
     let mut games = handler.games.write().await;
-    let _ = games.remove(&game_id);
+    let _ = games.remove(&(channel_id, message_id));
 
-    command
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::UpdateMessage)
-                .interaction_response_data(|message| message.components(|c| c))
-        })
+    let mut message = channel_id.message(&ctx.http, message_id).await?;
+    message
+        .edit(&ctx.http, |interaction| interaction.components(|c| c))
         .await?;
+
+    if let Some(mut info_message) = message.referenced_message {
+        let info_message_content = info_message.content.clone();
+        info_message
+            .edit(&ctx.http, |interaction| {
+                interaction.content(format!("{}\nGAME QUIT", info_message_content))
+            })
+            .await?;
+    }
 
     Ok(())
 }

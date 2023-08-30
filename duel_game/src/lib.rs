@@ -1,6 +1,7 @@
 use serenity::builder::CreateApplicationCommand;
 use serenity::model::prelude::application_command::CommandDataOption;
 use std::error::Error;
+use std::fmt::Display;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -19,7 +20,7 @@ impl PlayerTurn {
 }
 
 pub trait DiscordDuelGame: Send + Sync {
-    type Config: DiscordConfig + Send + Sync;
+    type Config: DiscordConfig + Send + Sync + Display;
     type Input: FromStr + Send + Sync;
     type GameError: Error;
 

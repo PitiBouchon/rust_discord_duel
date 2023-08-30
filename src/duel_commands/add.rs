@@ -1,13 +1,15 @@
-use std::path::PathBuf;
 use anyhow::Error;
 use serenity::builder::CreateApplicationCommand;
 use serenity::client::Context;
 use serenity::model::application::command::CommandOptionType;
 use serenity::model::channel::Attachment;
-use serenity::model::prelude::application_command::{ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue};
+use serenity::model::prelude::application_command::{
+    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
+};
 use serenity::model::prelude::InteractionResponseType;
+use std::path::PathBuf;
 
-pub fn make_add_command(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
+pub fn create_add_command(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     command
         .name("add")
         .description("Add a .wasm file to the list of the programs")
@@ -27,7 +29,10 @@ pub fn make_add_command(command: &mut CreateApplicationCommand) -> &mut CreateAp
         })
 }
 
-pub async fn add_command(ctx: &Context, command: &ApplicationCommandInteraction) -> anyhow::Result<()> {
+pub async fn add_command(
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+) -> anyhow::Result<()> {
     let options = command.data.options.as_slice();
     let attachment = get_attachment(options).ok_or(Error::msg("No valid attachment given"))?;
 

@@ -1,19 +1,18 @@
+use anyhow::Result;
 use serenity::builder::CreateApplicationCommand;
 use serenity::client::Context;
 use serenity::model::prelude::application_command::ApplicationCommandInteraction;
-use anyhow::Result;
 use serenity::model::prelude::InteractionResponseType;
 
-pub fn make_list_command(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
+pub fn create_list_command(
+    command: &mut CreateApplicationCommand,
+) -> &mut CreateApplicationCommand {
     command
         .name("list")
         .description("List the programs available")
 }
 
-pub async fn list_command(
-    ctx: &Context,
-    command: &ApplicationCommandInteraction,
-) -> Result<()> {
+pub async fn list_command(ctx: &Context, command: &ApplicationCommandInteraction) -> Result<()> {
     let mut paths = tokio::fs::read_dir("./tmp/").await?;
 
     let mut files: Vec<String> = Vec::new();
@@ -29,10 +28,7 @@ pub async fn list_command(
                 .kind(InteractionResponseType::ChannelMessageWithSource)
                 .interaction_response_data(|message| {
                     message
-                        .content(format!(
-                            "## Program available:\n{}",
-                            files_list
-                        ))
+                        .content(format!("## Program available:\n{}", files_list))
                         .ephemeral(true)
                 })
         })
