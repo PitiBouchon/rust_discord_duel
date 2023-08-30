@@ -1,15 +1,20 @@
 use crate::duel_buttons::play::play_button;
 use crate::duel_buttons::quit::quit_button;
-use crate::duel_command::{add_command, start_command};
+use crate::duel_commands::add::{add_command, make_add_command};
+use crate::duel_commands::start::start_command;
 use duel_game::{DiscordConfig, DiscordDuelGame, PlayerTurn};
 use serenity::async_trait;
 use serenity::model::application::command::CommandOptionType;
-use serenity::model::prelude::*;
-use serenity::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
+use serenity::http::Http;
+use serenity::model::prelude::application_command::ApplicationCommandInteraction;
+use serenity::model::prelude::message_component::MessageComponentInteraction;
+use serenity::model::prelude::{GuildId, Interaction, InteractionResponseType, Ready};
+use serenity::prelude::{Context, EventHandler};
 use tokio::sync::{Mutex, RwLock};
+use crate::duel_commands::list::{list_command, make_list_command};
 
 pub struct GameInstance<GAME: DiscordDuelGame> {
     pub game: GAME,
@@ -35,28 +40,10 @@ impl<GAME: DiscordDuelGame> EventHandler for Handler<GAME> {
             let commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
                 commands
                     .create_application_command(|command| {
-                        command
-                            .name("add")
-                            .description("Add a .wasm file to the list of the programs")
-                            .create_option(|option| {
-                                option
-                                    .name("attachment")
-                                    .description("A wasm file")
-                                    .required(true)
-                                    .kind(CommandOptionType::Attachment)
-                            })
-                            .create_option(|option| {
-                                option
-                                    .name("id")
-                                    .description("Id of the program")
-                                    .required(true)
-                                    .kind(CommandOptionType::Integer)
-                            })
+                        make_add_command(command)
                     })
                     .create_application_command(|command| {
-                        command
-                            .name("list")
-                            .description("List the programs available")
+                        make_list_command(command)
                     })
                     .create_application_command(|command| {
                         let command = command
@@ -99,81 +86,17 @@ impl<GAME: DiscordDuelGame> EventHandler for Handler<GAME> {
             Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
                 "start" => {
                     if let Err(error) = start_command::<GAME>(self, &ctx, &command).await {
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message.content(error).ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error start: {}", why);
-                        }
+                        send_error_application_command(&ctx.http, command, error).await;
                     }
                 }
-                "list" => match tokio::fs::read_dir("./tmp/").await {
-                    Ok(mut paths) => {
-                        let mut files: Vec<String> = Vec::new();
-                        while let Ok(Some(path)) = paths.next_entry().await {
-                            if let Ok(filename) = path.file_name().into_string() {
-                                files.push(format!("- `{}`", filename));
-                            }
-                        }
-                        let files_list = files.join("\n");
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message
-                                            .content(format!(
-                                                "## Program available:\n{}",
-                                                files_list
-                                            ))
-                                            .ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error quit: {}", why);
-                        }
-                    }
-                    Err(why) => {
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message
-                                            .content(format!(
-                                                "Can't get the list of programs: {}",
-                                                why
-                                            ))
-                                            .ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error quit: {}", why);
-                        }
+                "list" => {
+                    if let Err(error) = list_command(&ctx, &command).await {
+                        send_error_application_command(&ctx.http, command, error).await;
                     }
                 },
                 "add" => {
-                    if let Err(why) = add_command(&ctx, &command).await {
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message.content(format!("Error: {}", why)).ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error quit: {}", why);
-                        }
+                    if let Err(error) = add_command(&ctx, &command).await {
+                        send_error_application_command(&ctx.http, command, error).await;
                     }
                 }
                 _ => unreachable!(),
@@ -181,34 +104,12 @@ impl<GAME: DiscordDuelGame> EventHandler for Handler<GAME> {
             Interaction::MessageComponent(command) => match command.data.custom_id.as_str() {
                 "play_button_id" => {
                     if let Err(error) = play_button(self, &ctx, &command).await {
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message.content(&error).ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error play: {} | {}", why, error);
-                        }
+                        send_error_message_component(&ctx.http, command, error).await;
                     }
                 }
                 "quit_button_id" => {
                     if let Err(error) = quit_button(self, &ctx, &command).await {
-                        if let Err(why) = command
-                            .create_interaction_response(&ctx.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message.content(error).ephemeral(true)
-                                    })
-                            })
-                            .await
-                        {
-                            dbg!("Error play: {}", why);
-                        }
+                        send_error_message_component(&ctx.http, command, error).await;
                     }
                 }
                 _ => unreachable!(),
@@ -217,3 +118,34 @@ impl<GAME: DiscordDuelGame> EventHandler for Handler<GAME> {
         }
     }
 }
+
+async fn send_error_message_component(http: impl AsRef<Http>, command: MessageComponentInteraction, error: anyhow::Error) {
+    if let Err(why) = command
+        .create_interaction_response(http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| {
+                    message.content(error).ephemeral(true)
+                })
+        })
+        .await
+    {
+        dbg!("Error: {}", why);
+    }
+}
+
+async fn send_error_application_command(http: impl AsRef<Http>, command: ApplicationCommandInteraction, error: anyhow::Error) {
+    if let Err(why) = command
+        .create_interaction_response(http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| {
+                    message.content(error).ephemeral(true)
+                })
+        })
+        .await
+    {
+        dbg!("Error: {}", why);
+    }
+}
+

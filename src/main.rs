@@ -1,5 +1,5 @@
 mod duel_buttons;
-mod duel_command;
+mod duel_commands;
 mod handler;
 
 use handler::Handler;

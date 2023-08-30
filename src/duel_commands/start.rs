@@ -1,22 +1,20 @@
-use crate::handler::{GameInstance, Handler};
-use anyhow::{Error, Result};
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
+use anyhow::Error;
 use duel_game::{DiscordConfig, DiscordDuelGame, PlayerTurn};
 use serenity::client::Context;
 use serenity::model::application::component::ButtonStyle;
-use serenity::model::channel::{Attachment, ReactionType};
-use serenity::model::prelude::application_command::{
-    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
-};
+use serenity::model::channel::ReactionType;
+use serenity::model::prelude::application_command::{ApplicationCommandInteraction, CommandDataOptionValue};
 use serenity::model::prelude::InteractionResponseType;
-use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use tokio::sync::Mutex;
+use crate::handler::{GameInstance, Handler};
 
 pub async fn start_command<GAME: DiscordDuelGame>(
     handler: &Handler<GAME>,
     ctx: &Context,
     command: &ApplicationCommandInteraction,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let options = command.data.options.as_slice();
 
     let program1_id = options
@@ -55,7 +53,17 @@ pub async fn start_command<GAME: DiscordDuelGame>(
     let game = GAME::new(config);
 
     // TODO: Use this option
-    let _automatic = options.iter().any(|option| option.name == "automatic");
+    let _automatic = options.iter().find_map(|option| {
+        if option.name == "automatic" {
+            match option.resolved.as_ref()? {
+                CommandDataOptionValue::Boolean(b) => Some(*b),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+        .unwrap_or(true);
 
     let game_id = handler.number_game.fetch_add(1, Ordering::AcqRel);
 
@@ -102,65 +110,4 @@ pub async fn start_command<GAME: DiscordDuelGame>(
     println!("Message sent");
 
     Ok(())
-}
-
-pub async fn add_command(ctx: &Context, command: &ApplicationCommandInteraction) -> Result<()> {
-    let options = command.data.options.as_slice();
-    let attachment = get_attachment(options).ok_or(Error::msg("No valid attachment given"))?;
-
-    if attachment.size > 100_000_000 {
-        return Err(Error::msg(format!(
-            "File too big ({}>100MB)",
-            attachment.size
-        )));
-    }
-
-    let content_type = attachment
-        .content_type
-        .as_ref()
-        .ok_or(Error::msg("Attachment has no content type"))?;
-
-    if content_type.as_str() != "application/wasm" {
-        return Err(Error::msg(format!(
-            "Attachment has bad content type: {}",
-            content_type
-        )));
-    };
-
-    let program_id = get_program_id(options).ok_or(Error::msg("No id given"))?;
-
-    let file_path = PathBuf::from(format!("./tmp/{}.wasm", program_id));
-    if file_path.exists() {
-        return Err(Error::msg("Program id already exists"));
-    }
-
-    tokio::fs::write(file_path, attachment.download().await?).await?;
-
-    command
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| {
-                    message.content(format!("## Program added\n**id: {}**", program_id))
-                })
-        })
-        .await?;
-
-    Ok(())
-}
-
-fn get_attachment(options: &[CommandDataOption]) -> Option<&Attachment> {
-    if let CommandDataOptionValue::Attachment(attachment) = options.get(0)?.resolved.as_ref()? {
-        Some(attachment)
-    } else {
-        None
-    }
-}
-
-fn get_program_id(options: &[CommandDataOption]) -> Option<usize> {
-    if let CommandDataOptionValue::Integer(id) = options.get(1)?.resolved.as_ref()? {
-        Some((*id).max(0) as usize)
-    } else {
-        None
-    }
 }
