@@ -3,6 +3,7 @@
 // use serenity::model::prelude::application_command::ApplicationCommandInteraction;
 // use serenity::model::prelude::InteractionResponseType;
 //
+// TODO: Do the remove command to remove a program (file)
 // pub fn create_remove_command(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
 //     command
 //         .name("remove")

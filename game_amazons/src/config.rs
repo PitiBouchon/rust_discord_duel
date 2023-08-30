@@ -1,8 +1,8 @@
-use std::fmt::{Display, Formatter};
 use duel_game::DiscordConfig;
 use serenity::builder::CreateApplicationCommand;
 use serenity::model::application::command::CommandOptionType;
 use serenity::model::prelude::application_command::{CommandDataOption, CommandDataOptionValue};
+use std::fmt::{Display, Formatter};
 
 pub struct AmazonsConfig {
     pub width: usize,
@@ -77,6 +77,10 @@ impl DiscordConfig for AmazonsConfig {
 
 impl Display for AmazonsConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Width: {} | Height: {} | Queens: {}", self.width, self.height, self.queens)
+        write!(
+            f,
+            "Width: {} | Height: {} | Queens: {}",
+            self.width, self.height, self.queens
+        )
     }
 }

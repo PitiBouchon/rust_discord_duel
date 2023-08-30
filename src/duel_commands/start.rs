@@ -18,30 +18,37 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
+const PROGRAM1_NAME: &str = "program1";
+const PROGRAM2_NAME: &str = "program2";
+const AUTOMATIC_NAME: &str = "automatic";
+
+pub const PLAY_BUTTON_ID: &str = "play_button_id";
+pub const QUIT_BUTTON_ID: &str = "quit_button_id";
+
 pub fn create_start_command<GAME: DiscordDuelGame>(
     command: &mut CreateApplicationCommand,
 ) -> &mut CreateApplicationCommand {
     let command = command
         .name("start")
-        .description("Play a Duel Game with a .wasm file")
+        .description("Play a Duel Game with a .wasm program")
         .create_option(|option| {
             option
-                .name("program1")
-                .description("Program1")
+                .name(PROGRAM1_NAME)
+                .description("Program Id 1")
                 .required(true)
                 .kind(CommandOptionType::Integer)
         })
         .create_option(|option| {
             option
-                .name("program2")
-                .description("Program2")
+                .name(PROGRAM2_NAME)
+                .description("Program Id 2")
                 .required(true)
                 .kind(CommandOptionType::Integer)
         })
         .create_option(|option| {
             option
-                .name("automatic")
-                .description("Automatic")
+                .name(AUTOMATIC_NAME)
+                .description("Play automatically")
                 .required(false)
                 .kind(CommandOptionType::Boolean)
         });
@@ -52,13 +59,13 @@ pub async fn start_command<GAME: DiscordDuelGame>(
     handler: &Handler<GAME>,
     ctx: &Context,
     command: &ApplicationCommandInteraction,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let options = command.data.options.as_slice();
 
     let program1_id = options
         .iter()
         .find_map(|option| {
-            if option.name == "program1" {
+            if option.name == PROGRAM1_NAME {
                 Some(option.value.as_ref()?.as_i64()? as usize)
             } else {
                 None
@@ -69,22 +76,22 @@ pub async fn start_command<GAME: DiscordDuelGame>(
     let program2_id = options
         .iter()
         .find_map(|option| {
-            if option.name == "program2" {
+            if option.name == PROGRAM2_NAME {
                 Some(option.value.as_ref()?.as_i64()? as usize)
             } else {
                 None
             }
         })
-        .ok_or(Error::msg("Please input a program1 id"))?;
+        .ok_or(Error::msg("Please input a program2 id"))?;
 
     let file_path1 = PathBuf::from(format!("tmp/{}.wasm", program1_id));
     if !file_path1.try_exists()? {
-        return Err(Error::msg("Program1 does not exists"));
+        return Err(Error::msg("Program file 1 does not exists"));
     }
 
     let file_path2 = PathBuf::from(format!("tmp/{}.wasm", program2_id));
     if !file_path2.try_exists()? {
-        return Err(Error::msg("Program2 does not exists"));
+        return Err(Error::msg("Program file 2 does not exists"));
     }
 
     let config = GAME::Config::from_options(options);
@@ -94,7 +101,7 @@ pub async fn start_command<GAME: DiscordDuelGame>(
     let automatic = options
         .iter()
         .find_map(|option| {
-            if option.name == "automatic" {
+            if option.name == AUTOMATIC_NAME {
                 match option.resolved.as_ref()? {
                     CommandDataOptionValue::Boolean(b) => Some(*b),
                     _ => None,
@@ -112,8 +119,7 @@ pub async fn start_command<GAME: DiscordDuelGame>(
                 .interaction_response_data(|message| {
                     message.content(format!(
                         "> # Game Info\n> {} **VS** {}\n> Options: {}",
-                        program1_id, program2_id,
-                        displayed_config
+                        program1_id, program2_id, displayed_config
                     ))
                 })
         })
@@ -128,7 +134,7 @@ pub async fn start_command<GAME: DiscordDuelGame>(
                         if !automatic {
                             row.create_button(|button| {
                                 button
-                                    .custom_id("play_button_id")
+                                    .custom_id(PLAY_BUTTON_ID)
                                     .label("Play")
                                     .emoji(ReactionType::Unicode("▶️".to_string()))
                                     .style(ButtonStyle::Success)
@@ -136,7 +142,7 @@ pub async fn start_command<GAME: DiscordDuelGame>(
                         }
                         row.create_button(|button| {
                             button
-                                .custom_id("quit_button_id")
+                                .custom_id(QUIT_BUTTON_ID)
                                 .label("Quit")
                                 .emoji(ReactionType::Unicode("🛑".to_string()))
                                 .style(ButtonStyle::Danger)

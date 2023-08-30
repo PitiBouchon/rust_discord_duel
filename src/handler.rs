@@ -2,7 +2,9 @@ use crate::duel_buttons::play::play_button;
 use crate::duel_buttons::quit::quit_button;
 use crate::duel_commands::add::{add_command, create_add_command};
 use crate::duel_commands::list::{create_list_command, list_command};
-use crate::duel_commands::start::{create_start_command, start_command};
+use crate::duel_commands::start::{
+    create_start_command, start_command, PLAY_BUTTON_ID, QUIT_BUTTON_ID,
+};
 use duel_game::{DiscordDuelGame, PlayerTurn};
 use serenity::async_trait;
 use serenity::http::Http;
@@ -71,12 +73,12 @@ impl<GAME: DiscordDuelGame> EventHandler for Handler<GAME> {
                 _ => unreachable!(),
             },
             Interaction::MessageComponent(command) => match command.data.custom_id.as_str() {
-                "play_button_id" => {
+                PLAY_BUTTON_ID => {
                     if let Err(error) = play_button(self, &ctx, &command).await {
                         send_error_message_component(&ctx.http, command, error).await;
                     }
                 }
-                "quit_button_id" => {
+                QUIT_BUTTON_ID => {
                     if let Err(error) = quit_button(self, &ctx, &command).await {
                         send_error_message_component(&ctx.http, command, error).await;
                     }
